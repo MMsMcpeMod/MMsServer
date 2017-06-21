@@ -74,8 +74,8 @@ namespace pocketmine {
 
 	const VERSION = '1.5.1-hybrid';
 	const API_VERSION = "1.12.0";
-	const CODENAME = "刀 (Katana)";
-	const MINECRAFT_VERSION = "v1.0.x";
+	const CODENAME = "McpeMod-Team";
+	const MINECRAFT_VERSION = "v1.x.x";
 	const MINECRAFT_VERSION_NETWORK = "1.0.0";
 
 	/*
