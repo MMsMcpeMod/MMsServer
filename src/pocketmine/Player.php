@@ -156,7 +156,7 @@ use pocketmine\network\proxy\DisconnectPacket as ProxyDisconnectPacket;
 use pocketmine\network\ProxyInterface;
 use pocketmine\network\proxy\RedirectPacket;
 use pocketmine\network\proxy\ProxyPacket;
-
+use pocketmine\network\protocol\ServerToClientHandshakePacket;
 use pocketmine\item\enchantment\Enchantment;
 use pocketmine\item\Elytra;
 use pocketmine\network\protocol\SetTitlePacket;
@@ -320,6 +320,9 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 	private $expLevel = 0;
 
 	private $elytraIsActivated = false;
+	
+	private $encrypter = null;
+	private $encryptEnabled = false;
     
     /** @IMPORTANT don't change the scope */
     private $inventoryType = self::INVENTORY_CLASSIC;
@@ -340,6 +343,8 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 	
 	protected $viewRadius;
 	
+	protected $identityPublicKey = '';
+
 	private $actionsNum = [];
 	
 	public function getLeaveMessage(){
@@ -1769,7 +1774,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 //			return;
 //		}
 
-		$beforeLoginAvailablePackets = [ProtocolInfo::LOGIN_PACKET, ProtocolInfo::REQUEST_CHUNK_RADIUS_PACKET, ProtocolInfo::RESOURCE_PACKS_CLIENT_RESPONSE_PACKET];
+		$beforeLoginAvailablePackets = [ProtocolInfo::LOGIN_PACKET, ProtocolInfo::REQUEST_CHUNK_RADIUS_PACKET, ProtocolInfo::RESOURCE_PACKS_CLIENT_RESPONSE_PACKET, ProtocolInfo::CLIENT_TO_SERVER_HANDSHAKE_PACKET];
 		if (!$this->isOnline() && !in_array($packet->pid(), $beforeLoginAvailablePackets)) {
 			return;
 		}
@@ -1826,7 +1831,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
                 }
                 $this->xuid = $packet->xuid;
 				$this->languageCode = $packet->languageCode;
-					
+				$this->identityPublicKey = $packet->identityPublicKey;
 				$this->processLogin();
 				//Timings::$timerLoginPacket->stopTiming();
 				break;
@@ -2965,6 +2970,8 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 						return false;
 				}
 				break;
+			case ProtocolInfo::CLIENT_TO_SERVER_HANDSHAKE_PACKET:
+				break;
 			default:
 				break;
 		}
@@ -3573,7 +3580,16 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 		return true;
 	}
 	
-	public function processLogin() {			
+	public function processLogin() {	
+		if (!empty($this->identityPublicKey) && $this->server->isUseEncrypt()) {		
+			$token = $this->server->getServerToken();
+			$pk = new ServerToClientHandshakePacket();
+			$pk->publicKey = $this->server->getServerPublicKey();
+			$pk->serverToken = $token;
+			$this->dataPacket($pk);
+			$this->enableEncrypt($token, $this->server->getServerPrivateKey(), $this->identityPublicKey);
+		}
+		
 		if (!($this->interface instanceof ProxyInterface)) {
 			$pk = new PlayStatusPacket();
 			$pk->status = PlayStatusPacket::LOGIN_SUCCESS;
@@ -4108,6 +4124,23 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 		return $this->elytraIsActivated;
 	}
 	
+	public function isEncryptEnable() {
+		return $this->encryptEnabled;
+	}
+
+	public function getEncrypt($sStr) {		
+		return $this->encrypter->encrypt($sStr);
+	}	
+
+	public function getDecrypt($sStr) {
+		return $this->encrypter->decrypt($sStr);
+	}
+
+	private function enableEncrypt($token, $privateKey, $publicKey) {
+		$this->encrypter = new \McpeEncrypter($token, $privateKey, $publicKey);
+		$this->encryptEnabled = true;
+	}
+
 	public function getPlayerProtocol() {
 		switch ($this->protocol) {
 			case ProtocolInfo::PROTOCOL_110:

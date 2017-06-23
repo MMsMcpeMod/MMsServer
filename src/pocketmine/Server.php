@@ -295,6 +295,10 @@ class Server{
 	private $spawnedEntity = [];
 	
 	private $unloadLevelQueue = [];
+	
+	private $serverPublicKey = '';
+	private $serverPrivateKey = '';
+	private $serverToken = 'hksdYI3has';
 
 	public function addSpawnedEntity($entity) {
 		if ($entity instanceof Player) {
@@ -2080,8 +2084,9 @@ class Server{
 	/**
 	 * Starts the PocketMine-MP server and starts processing ticks and packets
 	 */
-	public function start(){	
+	public function start(){			
 		DataPacket::initPackets();
+		\McpeEncrypter::generateKeyPair($this->serverPrivateKey, $this->serverPublicKey);
 		$jsonCommands = @json_decode(@file_get_contents(__DIR__ . "/command/commands.json"), true);
 		if ($jsonCommands) {
 			$this->jsonCommands = $jsonCommands;
@@ -2633,5 +2638,20 @@ class Server{
 	public function getJsonCommands() {
 		return $this->jsonCommands;
 	}
-
+	
+	public function isUseEncrypt() {
+		return true;
+	}
+		
+	public function getServerPublicKey() {
+		return $this->serverPublicKey;
+	}
+	
+	public function getServerPrivateKey() {
+		return $this->serverPrivateKey;
+	}
+	
+	public function getServerToken() {	
+		return $this->serverToken;
+	}
 }
